@@ -1,37 +1,46 @@
 import React, { useState } from 'react';
 import { Supplier } from '../types/supplier';
-import { createWhatsAppUrl, copyToClipboard } from '../utils/whatsapp';
+import { ChannelActionButtons } from './ChannelActionButtons';
+import { copyToClipboard } from '../utils/whatsapp';
 import {
-  MessageCircle,
   MapPin,
   Star,
   Tag,
   Check,
   Copy,
-  ExternalLink,
   Edit,
   Trash2,
   DollarSign,
   FileText,
   Building,
+  Package,
+  EyeOff,
+  Eye,
+  Lock,
 } from 'lucide-react';
 
 interface SupplierCardProps {
   supplier: Supplier;
   isSelected: boolean;
+  isAdmin: boolean;
+  searchQuery?: string;
   onToggleSelect: (id: string) => void;
   onEdit: (supplier: Supplier) => void;
   onDelete: (id: string) => void;
   onViewDetails: (supplier: Supplier) => void;
+  onTogglePriceVisibility?: (id: string, currentHidden: boolean) => void;
 }
 
 export const SupplierCard: React.FC<SupplierCardProps> = ({
   supplier,
   isSelected,
+  isAdmin,
+  searchQuery = '',
   onToggleSelect,
   onEdit,
   onDelete,
   onViewDetails,
+  onTogglePriceVisibility,
 }) => {
   const [copied, setCopied] = useState(false);
 
@@ -44,28 +53,22 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({
     }
   };
 
-  const handleWhatsAppClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const url = createWhatsAppUrl(
-      supplier.cleanPhone || supplier.phone,
-      `Hello ${supplier.name}, I am contacting you regarding your products.`
-    );
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
+  const isPriceHidden = supplier.isPricingHidden && !isAdmin;
+  const isNotesHidden = supplier.isNotesHidden && !isAdmin;
 
-  const handleFacebookClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!supplier.facebookUrl) return;
-    window.open(supplier.facebookUrl, '_blank', 'noopener,noreferrer');
-  };
+  // Highlight products matching search
+  const q = searchQuery.toLowerCase().trim();
+  const matchingProducts = q && supplier.products
+    ? supplier.products.filter((p) => p.toLowerCase().includes(q))
+    : [];
 
   return (
     <div
       onClick={() => onViewDetails(supplier)}
-      className={`group relative rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden ${
+      className={`group relative rounded-3xl border transition-all duration-200 cursor-pointer overflow-hidden flex flex-col justify-between ${
         isSelected
           ? 'bg-emerald-50/70 border-emerald-500 shadow-md ring-2 ring-emerald-500/30'
-          : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow-md'
+          : 'bg-white border-slate-200/90 hover:border-slate-300 hover:shadow-md'
       }`}
     >
       {/* Top Banner / Selection bar */}
@@ -90,9 +93,16 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({
             </button>
 
             <div>
-              <h2 className="text-base font-bold text-slate-900 group-hover:text-emerald-700 transition leading-snug">
-                {supplier.name}
-              </h2>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="text-base font-bold text-slate-900 group-hover:text-emerald-700 transition leading-snug">
+                  {supplier.name}
+                </h3>
+                {supplier.isHidden && (
+                  <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-bold rounded">
+                    Hidden
+                  </span>
+                )}
+              </div>
               {supplier.companyName ? (
                 <p className="text-xs font-semibold text-slate-600 flex items-center gap-1.5 mt-0.5">
                   <Building className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -103,7 +113,7 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({
           </div>
 
           {/* Rating Badge */}
-          <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200/80 shrink-0">
+          <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-xl border border-amber-200/80 shrink-0">
             <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
             <span className="text-xs font-bold text-amber-900">{supplier.rating}.0</span>
           </div>
@@ -123,16 +133,76 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({
           </div>
         )}
 
-        {/* Pricing / Catalog preview */}
-        {supplier.pricingCatalog && (
-          <div className="mt-2.5 flex items-start gap-1.5 text-xs text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">
-            <DollarSign className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-            <p className="line-clamp-2 leading-relaxed">
-              <strong className="text-slate-700 font-medium">Pricing: </strong>
-              {supplier.pricingCatalog}
+        {/* Specific Products List (Important for search) */}
+        {supplier.products && supplier.products.length > 0 && (
+          <div className="mt-2.5">
+            <p className="text-[11px] font-semibold text-slate-500 flex items-center gap-1 mb-1">
+              <Package className="w-3 h-3 text-emerald-600" />
+              <span>প্রডাক্ট সমূহ ({supplier.products.length}):</span>
             </p>
+            <div className="flex flex-wrap gap-1">
+              {supplier.products.slice(0, 5).map((prod, idx) => {
+                const isMatch = matchingProducts.includes(prod);
+                return (
+                  <span
+                    key={idx}
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium border ${
+                      isMatch
+                        ? 'bg-amber-100 text-amber-900 border-amber-300 font-bold ring-1 ring-amber-400'
+                        : 'bg-slate-50 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    {prod}
+                  </span>
+                );
+              })}
+              {supplier.products.length > 5 && (
+                <span className="text-[10px] text-slate-400 px-1 py-0.5">
+                  +{supplier.products.length - 5} more
+                </span>
+              )}
+            </div>
           </div>
         )}
+
+        {/* Pricing / Catalog preview (with Admin Hide/Show protection) */}
+        <div className="mt-2.5">
+          {isPriceHidden ? (
+            <div className="flex items-center gap-2 p-2 bg-slate-100/80 rounded-xl text-slate-500 text-xs border border-dashed border-slate-200">
+              <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="italic">প্রডাক্ট প্রাইস ও ক্যাটালগ গোপন রাখা হয়েছে (Admin Restricted)</span>
+            </div>
+          ) : supplier.pricingCatalog ? (
+            <div className="relative flex items-start justify-between gap-1.5 text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+              <div className="flex items-start gap-1.5 min-w-0">
+                <DollarSign className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                <p className="line-clamp-2 leading-relaxed">
+                  <strong className="text-slate-700 font-medium">Pricing: </strong>
+                  {supplier.pricingCatalog}
+                </p>
+              </div>
+
+              {/* Admin toggle price visibility button */}
+              {isAdmin && onTogglePriceVisibility && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onTogglePriceVisibility(supplier.id, !!supplier.isPricingHidden);
+                  }}
+                  className={`p-1 rounded-md text-xs shrink-0 transition ${
+                    supplier.isPricingHidden
+                      ? 'bg-rose-100 text-rose-700 hover:bg-rose-200'
+                      : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                  }`}
+                  title={supplier.isPricingHidden ? 'Price is Hidden. Click to Unhide.' : 'Price is Visible. Click to Hide from public.'}
+                >
+                  {supplier.isPricingHidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                </button>
+              )}
+            </div>
+          ) : null}
+        </div>
 
         {/* Location snippet */}
         {supplier.location && (
@@ -142,8 +212,8 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({
           </p>
         )}
 
-        {/* Notes snippet */}
-        {supplier.notes && (
+        {/* Notes snippet (if not hidden) */}
+        {!isNotesHidden && supplier.notes && (
           <p className="mt-1.5 text-xs text-slate-500 line-clamp-1 italic flex items-center gap-1.5">
             <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <span>"{supplier.notes}"</span>
@@ -166,59 +236,21 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({
         )}
       </div>
 
-      {/* Action Footer: WhatsApp, Facebook & Quick Actions */}
+      {/* Action Footer: Dynamically renders ONLY selected communication channels */}
       <div className="px-4 py-3 bg-slate-50/80 border-t border-slate-100 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
-          {/* Direct WhatsApp Deep Link */}
-          <button
-            type="button"
-            onClick={handleWhatsAppClick}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold rounded-lg shadow-2xs transition active:scale-95"
-            title="Open WhatsApp chat with prefilled message"
-          >
-            <MessageCircle className="w-3.5 h-3.5 fill-white stroke-none" />
-            <span>WhatsApp</span>
-          </button>
+        <ChannelActionButtons supplier={supplier} compact={false} />
 
-          {/* Direct Facebook Link */}
-          {supplier.facebookUrl ? (
-            <button
-              type="button"
-              onClick={handleFacebookClick}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1877F2] hover:bg-[#0c63d4] text-white text-xs font-semibold rounded-lg shadow-2xs transition active:scale-95"
-              title="Open Facebook Profile / Page in browser or Facebook App"
-            >
-              <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
-                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-              </svg>
-              <span className="hidden sm:inline">Facebook</span>
-            </button>
-          ) : (
-            <span
-              className="px-2 py-1 text-[11px] text-slate-400 bg-slate-100 rounded-md"
-              title="No Facebook link provided"
-            >
-              No FB
-            </span>
-          )}
-
-          {/* Copy Phone Number */}
+        {/* Copy Phone & Manage */}
+        <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
             onClick={handleCopyPhone}
             className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-200/70 rounded-lg transition"
             title={copied ? 'Copied!' : `Copy phone: ${supplier.phone}`}
           >
-            {copied ? (
-              <Check className="w-3.5 h-3.5 text-emerald-600" />
-            ) : (
-              <Copy className="w-3.5 h-3.5" />
-            )}
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
-        </div>
 
-        {/* Edit & Delete */}
-        <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={(e) => {
@@ -230,6 +262,7 @@ export const SupplierCard: React.FC<SupplierCardProps> = ({
           >
             <Edit className="w-3.5 h-3.5" />
           </button>
+
           <button
             type="button"
             onClick={(e) => {

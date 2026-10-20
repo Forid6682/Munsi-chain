@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Download, Share, PlusSquare, X, Monitor, Smartphone, Check, Sparkles } from 'lucide-react';
+import { Download, Share, PlusSquare, X, Monitor, Smartphone, Check, Sparkles, ExternalLink } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
 export const PWAInstallButton: React.FC = () => {
-  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
+  const { isInstallable, isInstalled, isIOS, isInIframe, install } = usePWAInstall();
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [installSuccess, setInstallSuccess] = useState(false);
 
@@ -13,7 +13,8 @@ export const PWAInstallButton: React.FC = () => {
   }
 
   const handleClick = async () => {
-    if (isInstallable) {
+    // If not in iframe and browser prompt is ready, trigger it directly
+    if (isInstallable && !isInIframe) {
       const ok = await install();
       if (ok) {
         setInstallSuccess(true);
@@ -21,8 +22,14 @@ export const PWAInstallButton: React.FC = () => {
         return;
       }
     }
-    // If browser prompt wasn't triggered or is on iOS/desktop without active prompt, open helpful guided modal
+    // Otherwise open the guided install modal
     setShowGuideModal(true);
+  };
+
+  const handleOpenDirect = () => {
+    // Open app directly in a full browser tab so beforeinstallprompt fires freely
+    window.open(window.location.href, '_blank');
+    setShowGuideModal(false);
   };
 
   return (
@@ -31,8 +38,8 @@ export const PWAInstallButton: React.FC = () => {
       <button
         type="button"
         onClick={handleClick}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md shadow-emerald-600/20 transition active:scale-95 border border-emerald-400/30"
-        title="স্মার্টফোনে বা কম্পিউটারে এ্যাপটি ইন্সটল করে অফলাইনে ব্যবহার করুন"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md shadow-emerald-600/20 transition active:scale-95 border border-emerald-400/30 shrink-0"
+        title="স্মার্টফোনে বা কম্পিউটারে এ্যাপটি ইন্সটল করুন"
       >
         <Download className="w-4 h-4 text-emerald-100 animate-bounce shrink-0" />
         <span className="whitespace-nowrap">এ্যাপ ইন্সটল</span>
@@ -57,10 +64,10 @@ export const PWAInstallButton: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-slate-900 leading-tight">
-                    এ্যাপ ইন্সটল করার নিয়ম
+                    এ্যাপ ইন্সটল করার সহজ উপায়
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Install Munsi Supplier Directory (PWA)
+                    Munsi Supplier Directory PWA
                   </p>
                 </div>
               </div>
@@ -73,20 +80,38 @@ export const PWAInstallButton: React.FC = () => {
             </div>
 
             <div className="mt-4 space-y-3.5 text-xs sm:text-sm text-slate-600">
-              {isInstallable && (
-                <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200">
-                  <p className="text-xs font-semibold text-emerald-900 mb-2">
-                    আপনার ব্রাউজার সরাসরি ইন্সটল সমর্থন করে:
+              {/* Iframe Notice & One-click Direct Tab */}
+              {isInIframe && (
+                <div className="p-3.5 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-2">
+                  <p className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-emerald-600" />
+                    ১-ক্লিকে ইন্সটল করতে নতুন ট্যাবে খুলুন:
                   </p>
+                  <p className="text-[11px] text-emerald-800 leading-relaxed">
+                    ব্রাউজার সিকিউরিটির কারণে প্রিভিউ ফ্রেমের ভেতরে সরাসরি ইন্সটল উইন্ডো নাও আসতে পারে। নিচের বাটনে ক্লিক করে ফুল ব্রাউজারে খুললেই সাথে সাথে ইন্সটল করা যাবে।
+                  </p>
+                  <button
+                    onClick={handleOpenDirect}
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-xs flex items-center justify-center gap-2 text-xs"
+                  >
+                    <span>নতুন ট্যাবে খুলে ইন্সটল করুন</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Native Prompt Available */}
+              {isInstallable && !isInIframe && (
+                <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200">
                   <button
                     onClick={async () => {
                       const ok = await install();
                       if (ok) setShowGuideModal(false);
                     }}
-                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-xs flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-xs flex items-center justify-center gap-2 text-xs"
                   >
                     <Download className="w-4 h-4" />
-                    <span>এখনই ইন্সটল করুন</span>
+                    <span>সরাসরি ডিভাইসে ইন্সটল করুন</span>
                   </button>
                 </div>
               )}
@@ -97,7 +122,7 @@ export const PWAInstallButton: React.FC = () => {
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
                     <Smartphone className="w-4 h-4 text-emerald-600" />
-                    <span>iPhone / iPad এ যেভাবে ইন্সটল করবেন:</span>
+                    <span>iPhone / iPad (Safari) এ ইন্সটল নিয়ম:</span>
                   </div>
 
                   <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
@@ -114,7 +139,7 @@ export const PWAInstallButton: React.FC = () => {
                       ২
                     </span>
                     <p className="leading-relaxed">
-                      নিচে স্ক্রোল করে <strong className="text-slate-900 font-semibold inline-flex items-center gap-1"><PlusSquare className="w-3.5 h-3.5 text-emerald-600 inline" /> Add to Home Screen</strong> এ চাপ দিন।
+                      নিচে স্ক্রোল করে <strong className="text-slate-900 font-semibold inline-flex items-center gap-1"><PlusSquare className="w-3.5 h-3.5 text-emerald-600 inline" /> Add to Home Screen</strong> চাপুন।
                     </p>
                   </div>
                 </div>
@@ -123,7 +148,7 @@ export const PWAInstallButton: React.FC = () => {
                 <div className="space-y-2.5">
                   <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
                     <Smartphone className="w-4 h-4 text-emerald-600" />
-                    <span>Android মোবাইল অথবা কম্পিউটারে ইন্সটল করার নিয়ম:</span>
+                    <span>Android মোবাইল অথবা কম্পিউটারে ইন্সটল নিয়ম:</span>
                   </div>
 
                   <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
@@ -140,24 +165,11 @@ export const PWAInstallButton: React.FC = () => {
                       ২
                     </span>
                     <p className="leading-relaxed">
-                      মেন্যু থেকে <strong>"Install app"</strong> অথবা <strong>"Add to Home screen"</strong> নির্বাচন করুন।
+                      মেন্যু থেকে <strong>"Install app"</strong> অথবা <strong>"Add to Home screen"</strong> এ চাপ দিন।
                     </p>
                   </div>
                 </div>
               )}
-
-              {/* Benefits highlight */}
-              <div className="p-3 bg-slate-50 rounded-2xl text-[11px] text-slate-500 border border-slate-100 space-y-1">
-                <p className="font-semibold text-slate-700 flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                  এ্যাপ ইন্সটল করলে সুবিধা:
-                </p>
-                <ul className="list-disc list-inside space-y-0.5 pl-1">
-                  <li>ইন্টারনেট ছাড়াও অফলাইনে সরাসরি চালু করা যাবে</li>
-                  <li>মোবাইল হোমস্ক্রিন থেকে ১ ক্লিকে হোয়াটসঅ্যাপ ব্রডকাস্ট পাঠানো যাবে</li>
-                  <li>ব্রাউজারের অ্যাড্রেস বার ছাড়া ফুলস্ক্রিন নেটিভ এ্যাপের মতো চলবে</li>
-                </ul>
-              </div>
             </div>
 
             <button
@@ -165,7 +177,7 @@ export const PWAInstallButton: React.FC = () => {
               onClick={() => setShowGuideModal(false)}
               className="mt-5 w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold transition"
             >
-              ঠিক আছে, বন্ধ করুন
+              বন্ধ করুন
             </button>
           </div>
         </div>

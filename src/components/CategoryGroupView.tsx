@@ -6,21 +6,27 @@ import { ChevronDown, ChevronRight, Layers, CheckSquare } from 'lucide-react';
 interface CategoryGroupViewProps {
   suppliers: Supplier[];
   selectedIds: string[];
+  isAdmin: boolean;
+  searchQuery?: string;
   onToggleSelect: (id: string) => void;
   onSelectMultiple: (ids: string[]) => void;
   onEdit: (supplier: Supplier) => void;
   onDelete: (id: string) => void;
   onViewDetails: (supplier: Supplier) => void;
+  onTogglePriceVisibility?: (id: string, currentHidden: boolean) => void;
 }
 
 export const CategoryGroupView: React.FC<CategoryGroupViewProps> = ({
   suppliers,
   selectedIds,
+  isAdmin,
+  searchQuery = '',
   onToggleSelect,
   onSelectMultiple,
   onEdit,
   onDelete,
   onViewDetails,
+  onTogglePriceVisibility,
 }) => {
   // Group suppliers by category
   const grouped = React.useMemo(() => {
@@ -52,7 +58,7 @@ export const CategoryGroupView: React.FC<CategoryGroupViewProps> = ({
   if (grouped.length === 0) {
     return (
       <div className="text-center py-12 bg-white rounded-3xl border border-slate-200">
-        <p className="text-sm text-slate-500">No suppliers found in any categories.</p>
+        <p className="text-sm text-slate-500">কোনো ক্যাটাগরিতে সাপ্লায়ার পাওয়া যায়নি।</p>
       </div>
     );
   }
@@ -97,11 +103,9 @@ export const CategoryGroupView: React.FC<CategoryGroupViewProps> = ({
                 type="button"
                 onClick={() => {
                   if (allSelected) {
-                    // Deselect these
                     const remaining = selectedIds.filter((id) => !categoryIds.includes(id));
                     onSelectMultiple(remaining);
                   } else {
-                    // Add these
                     const combined = Array.from(new Set([...selectedIds, ...categoryIds]));
                     onSelectMultiple(combined);
                   }
@@ -113,7 +117,7 @@ export const CategoryGroupView: React.FC<CategoryGroupViewProps> = ({
                 }`}
               >
                 <CheckSquare className="w-3.5 h-3.5" />
-                <span>{allSelected ? 'Deselect All' : 'Select All for WhatsApp'}</span>
+                <span>{allSelected ? 'সবগুলো বাদ দিন' : 'সবগুলো সিলেক্ট করুন'}</span>
               </button>
             </div>
 
@@ -126,10 +130,13 @@ export const CategoryGroupView: React.FC<CategoryGroupViewProps> = ({
                       key={`${category}-${supplier.id}`}
                       supplier={supplier}
                       isSelected={selectedIds.includes(supplier.id)}
+                      isAdmin={isAdmin}
+                      searchQuery={searchQuery}
                       onToggleSelect={onToggleSelect}
                       onEdit={onEdit}
                       onDelete={onDelete}
                       onViewDetails={onViewDetails}
+                      onTogglePriceVisibility={onTogglePriceVisibility}
                     />
                   ))}
                 </div>

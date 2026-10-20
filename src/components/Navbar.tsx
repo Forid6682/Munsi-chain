@@ -13,26 +13,32 @@ import {
   WifiOff,
   Layers,
   Users,
+  Shield,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface NavbarProps {
   currentUser: User | null;
   isAuthLoading: boolean;
+  isAdmin: boolean;
   supplierCount: number;
   categoryCount: number;
   syncStatus: 'cloud' | 'local' | 'syncing';
   onOpenNewSupplier: () => void;
   onOpenExportImport: () => void;
+  onOpenAdminPanel: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   currentUser,
   isAuthLoading,
+  isAdmin,
   supplierCount,
   categoryCount,
   syncStatus,
   onOpenNewSupplier,
   onOpenExportImport,
+  onOpenAdminPanel,
 }) => {
   const isOnline = useOnlineStatus();
 
@@ -70,6 +76,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800">
                   PWA
                 </span>
+                {isAdmin && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-emerald-400 border border-emerald-500/30">
+                    <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                    Admin
+                  </span>
+                )}
               </div>
               <p className="text-[11px] text-slate-500 flex items-center gap-1.5 font-medium">
                 <span className="truncate max-w-[120px] sm:max-w-none">
@@ -109,7 +121,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Actions & Profile */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-2.5">
             {/* Offline Alert if disconnected */}
             {!isOnline && (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
@@ -118,13 +130,31 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             )}
 
-            {/* PWA Install Button */}
+            {/* PWA Install Button (Always visible when not installed) */}
             <PWAInstallButton />
+
+            {/* Admin Panel Trigger */}
+            <button
+              onClick={onOpenAdminPanel}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold rounded-xl transition shadow-2xs ${
+                isAdmin
+                  ? 'bg-slate-900 text-emerald-400 hover:bg-slate-800 border border-emerald-500/40'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+              }`}
+              title="এ্যাডমিন প্যানেল: প্রাইস ও সংবেদনশীল তথ্য গোপন বা প্রকাশ করুন"
+            >
+              {isAdmin ? (
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Shield className="w-3.5 h-3.5 text-slate-600" />
+              )}
+              <span className="hidden sm:inline">এ্যাডমিন</span>
+            </button>
 
             {/* Export / Data Backup */}
             <button
               onClick={onOpenExportImport}
-              className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+              className="hidden md:inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
               title="Backup, Export CSV/JSON or Restore Data"
             >
               <Database className="w-3.5 h-3.5" />
@@ -134,10 +164,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Add Supplier Quick Button */}
             <button
               onClick={onOpenNewSupplier}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-sm transition"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs sm:text-sm font-bold rounded-xl shadow-sm transition shrink-0"
             >
               <span className="text-base font-bold leading-none">+</span>
-              <span className="hidden sm:inline">Add Supplier</span>
+              <span className="hidden sm:inline">সাপ্লায়ার যোগ</span>
               <span className="sm:hidden">Add</span>
             </button>
 

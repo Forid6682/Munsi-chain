@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Supplier, MESSAGE_TEMPLATES } from '../types/supplier';
 import { createWhatsAppUrl, interpolateMessage, copyToClipboard } from '../utils/whatsapp';
+import { ChannelActionButtons } from './ChannelActionButtons';
 import {
   X,
   Star,
   Building,
-  Phone,
   MapPin,
   Tag,
   DollarSign,
@@ -16,21 +16,28 @@ import {
   Check,
   Edit,
   Trash2,
-  Share2,
+  Package,
+  Lock,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 interface SupplierDetailModalProps {
   supplier: Supplier | null;
+  isAdmin: boolean;
   onClose: () => void;
   onEdit: (supplier: Supplier) => void;
   onDelete: (id: string) => void;
+  onTogglePriceVisibility?: (id: string, currentHidden: boolean) => void;
 }
 
 export const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
   supplier,
+  isAdmin,
   onClose,
   onEdit,
   onDelete,
+  onTogglePriceVisibility,
 }) => {
   const [copied, setCopied] = useState(false);
   const [inquiryText, setInquiryText] = useState(
@@ -51,16 +58,14 @@ export const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
     const customized = interpolateMessage(inquiryText, {
       name: supplier.name,
       company: supplier.companyName,
-      category: supplier.categories[0],
+      category: supplier.categories[0] || (supplier.products?.[0] ?? 'materials'),
     });
     const url = createWhatsAppUrl(supplier.cleanPhone || supplier.phone, customized);
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const handleOpenFacebook = () => {
-    if (!supplier.facebookUrl) return;
-    window.open(supplier.facebookUrl, '_blank', 'noopener,noreferrer');
-  };
+  const isPriceHidden = supplier.isPricingHidden && !isAdmin;
+  const isNotesHidden = supplier.isNotesHidden && !isAdmin;
 
   const mapsUrl = supplier.location
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(supplier.location)}`
@@ -88,6 +93,11 @@ export const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
                   <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
                   <span className="text-xs font-bold text-amber-200">{supplier.rating}.0 / 5</span>
                 </div>
+                {supplier.isPricingHidden && (
+                  <span className="px-1.5 py-0.5 rounded bg-rose-500/40 text-rose-200 text-[10px] font-bold">
+                    Price Hidden
+                  </span>
+                )}
               </div>
               <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-1.5">
                 {supplier.name}
@@ -101,44 +111,14 @@ export const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Quick contact pills */}
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {/* Direct WhatsApp Callout */}
-            <button
-              onClick={handleOpenWhatsApp}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition active:scale-95"
-            >
-              <MessageCircle className="w-4 h-4 fill-white stroke-none" />
-              <span>Chat on WhatsApp</span>
-            </button>
-
-            {/* Direct Facebook Callout */}
-            {supplier.facebookUrl ? (
-              <button
-                onClick={handleOpenFacebook}
-                className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#1877F2] hover:bg-[#0c63d4] text-white font-semibold text-xs sm:text-sm rounded-xl shadow-md transition active:scale-95"
-              >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                </svg>
-                <span>Facebook Profile</span>
-                <ExternalLink className="w-3 h-3 opacity-70" />
-              </button>
-            ) : null}
-
-            {/* Phone Call */}
-            <a
-              href={`tel:${supplier.cleanPhone || supplier.phone}`}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 text-white font-medium text-xs rounded-xl transition"
-            >
-              <Phone className="w-3.5 h-3.5" />
-              <span>Call</span>
-            </a>
+          {/* Quick contact buttons — ONLY the selected channels */}
+          <div className="mt-4 pt-3 border-t border-emerald-700/50 flex flex-wrap items-center gap-2">
+            <ChannelActionButtons supplier={supplier} compact={false} />
 
             {/* Copy phone */}
             <button
               onClick={handleCopyPhone}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 text-white font-medium text-xs rounded-xl transition"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white font-medium text-xs rounded-xl transition"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copied ? 'Copied' : supplier.phone}</span>
@@ -148,10 +128,30 @@ export const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
+          {/* Products List */}
+          {supplier.products && supplier.products.length > 0 && (
+            <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-200/80">
+              <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Package className="w-4 h-4 text-emerald-700" />
+                প্রডাক্ট তালিকা (Products Supplied)
+              </h4>
+              <div className="flex flex-wrap gap-1.5">
+                {supplier.products.map((prod, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-emerald-900 border border-emerald-300 shadow-2xs"
+                  >
+                    {prod}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Categories & Tags */}
           <div>
             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-              Categories & Labels
+              ক্যাটাগরি ও লেবেল
             </h4>
             <div className="flex flex-wrap gap-1.5">
               {supplier.categories.map((c, i) => (
@@ -176,16 +176,38 @@ export const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
 
           {/* Pricing List & Catalog */}
           <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-            <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5 mb-2">
-              <DollarSign className="w-4 h-4 text-emerald-600" />
-              Pricing List / Catalog Details
-            </h4>
-            {supplier.pricingCatalog ? (
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <DollarSign className="w-4 h-4 text-emerald-600" />
+                প্রডাক্ট প্রাইস ও ক্যাটালগ
+              </h4>
+              {isAdmin && onTogglePriceVisibility && (
+                <button
+                  type="button"
+                  onClick={() => onTogglePriceVisibility(supplier.id, !!supplier.isPricingHidden)}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold ${
+                    supplier.isPricingHidden
+                      ? 'bg-rose-100 text-rose-700'
+                      : 'bg-emerald-100 text-emerald-800'
+                  }`}
+                >
+                  {supplier.isPricingHidden ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  <span>{supplier.isPricingHidden ? 'Hidden (Admin)' : 'Visible (Admin)'}</span>
+                </button>
+              )}
+            </div>
+
+            {isPriceHidden ? (
+              <div className="flex items-center gap-2 p-3 bg-slate-100 rounded-xl text-slate-500 text-xs border border-dashed border-slate-200">
+                <Lock className="w-4 h-4 text-slate-400 shrink-0" />
+                <span className="italic">প্রাইস ও ক্যাটালগের বিবরণ এ্যাডমিন কর্তৃক গোপন রাখা হয়েছে।</span>
+              </div>
+            ) : supplier.pricingCatalog ? (
               <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
                 {supplier.pricingCatalog}
               </p>
             ) : (
-              <p className="text-xs text-slate-400 italic">No pricing details recorded yet.</p>
+              <p className="text-xs text-slate-400 italic">কোনো প্রাইসিং বিবরণ যোগ করা হয়নি।</p>
             )}
           </div>
 
@@ -195,7 +217,7 @@ export const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
               <div className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-bold text-slate-700">Location / Address</p>
+                  <p className="text-xs font-bold text-slate-700">ঠিকানা / লোকেশন</p>
                   <p className="text-xs text-slate-600 mt-0.5">{supplier.location}</p>
                 </div>
               </div>
@@ -213,11 +235,11 @@ export const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
           )}
 
           {/* Custom Notes */}
-          {supplier.notes && (
+          {!isNotesHidden && supplier.notes && (
             <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80">
               <h4 className="text-xs font-bold text-amber-900 flex items-center gap-1.5 mb-1.5">
                 <FileText className="w-4 h-4 text-amber-700" />
-                Private Notes (Delivery speed, advance policy, terms)
+                ব্যক্তিগত নোট (Private Notes)
               </h4>
               <p className="text-xs sm:text-sm text-amber-950 leading-relaxed whitespace-pre-wrap">
                 {supplier.notes}
@@ -229,7 +251,7 @@ export const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
           <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200">
             <h4 className="text-xs font-bold text-emerald-900 flex items-center gap-1.5 mb-2">
               <MessageCircle className="w-4 h-4 text-emerald-600" />
-              Send Prefilled WhatsApp Message
+              হোয়াটসঅ্যাপে সরাসরি মেসেজ পাঠান
             </h4>
             <div className="flex flex-wrap gap-1 mb-2">
               {MESSAGE_TEMPLATES.map((tmpl, idx) => (
@@ -255,7 +277,7 @@ export const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold rounded-lg shadow-xs transition"
               >
                 <MessageCircle className="w-3.5 h-3.5 fill-current" />
-                <span>Launch WhatsApp Deep Link</span>
+                <span>WhatsApp Deep Link লঞ্চ করুন</span>
               </button>
             </div>
           </div>
@@ -273,7 +295,7 @@ export const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
             className="inline-flex items-center gap-1 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-2.5 py-1.5 rounded-lg transition"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Delete</span>
+            <span>মুছে ফেলুন</span>
           </button>
 
           <div className="flex items-center gap-2">
@@ -285,13 +307,13 @@ export const SupplierDetailModal: React.FC<SupplierDetailModalProps> = ({
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-xl transition"
             >
               <Edit className="w-3.5 h-3.5" />
-              <span>Edit Details</span>
+              <span>তথ্য এডিট</span>
             </button>
             <button
               onClick={onClose}
               className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-semibold rounded-xl transition"
             >
-              Close
+              বন্ধ করুন
             </button>
           </div>
         </div>

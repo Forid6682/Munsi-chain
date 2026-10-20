@@ -2,7 +2,7 @@
   "entities": {
     "Supplier": {
       "title": "Supplier",
-      "description": "Supplier directory record with contact information, WhatsApp deep links, Facebook links, pricing details, and categories.",
+      "description": "Supplier directory record with communication channels, specific products list, WhatsApp deep links, Facebook links, pricing details, and admin visibility controls.",
       "type": "object",
       "properties": {
         "id": {
@@ -25,7 +25,7 @@
         },
         "phone": {
           "type": "string",
-          "description": "WhatsApp-enabled phone number with country code",
+          "description": "WhatsApp and calling phone number",
           "maxLength": 30
         },
         "cleanPhone": {
@@ -38,6 +38,25 @@
           "description": "URL to Facebook profile or business page",
           "maxLength": 300
         },
+        "telegram": {
+          "type": "string",
+          "description": "Telegram username or t.me link",
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "description": "Contact email address",
+          "maxLength": 120
+        },
+        "imo": {
+          "type": "string",
+          "description": "IMO contact phone number",
+          "maxLength": 30
+        },
+        "communicationChannels": {
+          "type": "array",
+          "description": "Selected communication channels (whatsapp, phone, facebook, telegram, email, imo)"
+        },
         "location": {
           "type": "string",
           "description": "Physical address, city, or market location",
@@ -46,6 +65,10 @@
         "categories": {
           "type": "array",
           "description": "Product categories or item types supplied"
+        },
+        "products": {
+          "type": "array",
+          "description": "Specific product names provided by this supplier"
         },
         "pricingCatalog": {
           "type": "string",
@@ -64,6 +87,18 @@
         "tags": {
           "type": "array",
           "description": "Labels such as Priority, Backup, Wholesale"
+        },
+        "isPricingHidden": {
+          "type": "boolean",
+          "description": "Whether product pricing is hidden by admin"
+        },
+        "isNotesHidden": {
+          "type": "boolean",
+          "description": "Whether custom notes are hidden by admin"
+        },
+        "isHidden": {
+          "type": "boolean",
+          "description": "Whether supplier is hidden from standard view"
         },
         "createdAt": {
           "type": "string",

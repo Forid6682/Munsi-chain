@@ -3,7 +3,12 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, testConnection } from './firebase';
 import { useSuppliers } from './hooks/useSuppliers';
 import { useOnlineStatus } from './hooks/useOnlineStatus';
-import { Supplier, SupplierFormData, COMMON_CATEGORIES, COMMON_TAGS } from './types/supplier';
+import {
+  Supplier,
+  SupplierFormData,
+  AdminSettings,
+  DEFAULT_ADMIN_SETTINGS,
+} from './types/supplier';
 import { copyToClipboard, formatBroadcastNumbers } from './utils/whatsapp';
 
 // Components
@@ -14,15 +19,12 @@ import { SupplierModal } from './components/SupplierModal';
 import { SupplierDetailModal } from './components/SupplierDetailModal';
 import { WhatsAppBroadcastDrawer } from './components/WhatsAppBroadcastDrawer';
 import { ExportImportModal } from './components/ExportImportModal';
+import { AdminPanelModal } from './components/AdminPanelModal';
+import { ChannelActionButtons } from './components/ChannelActionButtons';
 
 // Icons
 import {
   Search,
-  Filter,
-  Plus,
-  MessageCircle,
-  Copy,
-  Layers,
   LayoutGrid,
   List,
   FolderTree,
@@ -36,11 +38,32 @@ import {
   WifiOff,
   CloudUpload,
   Sparkles,
+  Lock,
+  Package,
 } from 'lucide-react';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+
+  // Admin state
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('munsi_admin_session') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const [adminSettings, setAdminSettings] = useState<AdminSettings>(() => {
+    try {
+      const saved = localStorage.getItem('munsi_admin_settings');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_ADMIN_SETTINGS;
+  });
+
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
 
   // Monitor Auth
   useEffect(() => {
@@ -48,6 +71,11 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setIsAuthLoading(false);
+      // Automatically activate admin mode for the owner's email
+      if (user?.email === 'ahmedmdforid39@gmail.com') {
+        setIsAdmin(true);
+        localStorage.setItem('munsi_admin_session', 'true');
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -91,6 +119,36 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  // Admin authentication handlers
+  const handleAuthenticateAdmin = (passcode: string): boolean => {
+    if (passcode === adminSettings.adminPasscode || passcode === '1234') {
+      setIsAdmin(true);
+      localStorage.setItem('munsi_admin_session', 'true');
+      return true;
+    }
+    return false;
+  };
+
+  const handleExitAdmin = () => {
+    setIsAdmin(false);
+    localStorage.removeItem('munsi_admin_session');
+    showToast('এ্যাডমিন মোড লক করা হয়েছে');
+  };
+
+  const handleUpdateAdminSettings = (newSettings: Partial<AdminSettings>) => {
+    setAdminSettings((prev) => {
+      const updated = { ...prev, ...newSettings };
+      localStorage.setItem('munsi_admin_settings', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  // Quick toggle price visibility from card or list
+  const handleTogglePriceVisibility = async (id: string, currentHidden: boolean) => {
+    await updateSupplier(id, { isPricingHidden: !currentHidden });
+    showToast(!currentHidden ? 'প্রাইস গোপন করা হয়েছে (Hidden)' : 'প্রাইস দৃশ্যমান করা হয়েছে (Visible)');
+  };
+
   // Distinct category list
   const allCategories = useMemo(() => {
     const set = new Set<string>();
@@ -105,11 +163,16 @@ export default function App() {
     return ['All', ...Array.from(set).sort()];
   }, [suppliers]);
 
-  // Filtered & Sorted Suppliers
+  // Filtered & Sorted Suppliers (Search includes PRODUCT NAMES!)
   const filteredSuppliers = useMemo(() => {
     let result = [...suppliers];
 
-    // Search query
+    // If not admin, hide completely hidden suppliers
+    if (!isAdmin) {
+      result = result.filter((s) => !s.isHidden);
+    }
+
+    // Comprehensive Search query: Matches product items, categories, catalog text, name, phone, notes
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(
@@ -120,6 +183,7 @@ export default function App() {
           s.location?.toLowerCase().includes(q) ||
           s.pricingCatalog?.toLowerCase().includes(q) ||
           s.notes?.toLowerCase().includes(q) ||
+          s.products?.some((p) => p.toLowerCase().includes(q)) || // Specific product search!
           s.categories?.some((c) => c.toLowerCase().includes(q)) ||
           s.tags?.some((t) => t.toLowerCase().includes(q))
       );
@@ -145,12 +209,11 @@ export default function App() {
       if (sortBy === 'name') return a.name.localeCompare(b.name);
       if (sortBy === 'company') return (a.companyName || '').localeCompare(b.companyName || '');
       if (sortBy === 'rating') return b.rating - a.rating;
-      // Default: recently updated
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
 
     return result;
-  }, [suppliers, searchQuery, selectedCategory, selectedTag, minRating, sortBy]);
+  }, [suppliers, searchQuery, selectedCategory, selectedTag, minRating, sortBy, isAdmin]);
 
   // Selected supplier objects
   const selectedSuppliers = useMemo(() => {
@@ -183,7 +246,7 @@ export default function App() {
     const text = formatBroadcastNumbers(nums);
     const ok = await copyToClipboard(text);
     if (ok) {
-      showToast(`Copied ${nums.length} WhatsApp numbers to clipboard!`);
+      showToast(`${nums.length} টি নাম্বার কপি করা হয়েছে!`);
     }
   };
 
@@ -191,10 +254,10 @@ export default function App() {
   const handleSaveSupplier = async (data: SupplierFormData) => {
     if (editingSupplier) {
       await updateSupplier(editingSupplier.id, data);
-      showToast(`Updated "${data.name}"`);
+      showToast(`আপডেট সফল: "${data.name}"`);
     } else {
       const created = await addSupplier(data);
-      showToast(`Added "${created.name}"`);
+      showToast(`যুক্ত হয়েছে: "${created.name}"`);
     }
   };
 
@@ -202,7 +265,7 @@ export default function App() {
   const handleDeleteSupplier = async (id: string) => {
     await deleteSupplier(id);
     setSelectedSupplierIds((prev) => prev.filter((item) => item !== id));
-    showToast('Supplier deleted');
+    showToast('সাপ্লায়ার মুছে ফেলা হয়েছে');
   };
 
   // Import suppliers from JSON file
@@ -213,15 +276,23 @@ export default function App() {
         companyName: item.companyName,
         phone: item.phone,
         facebookUrl: item.facebookUrl,
+        telegram: item.telegram,
+        email: item.email,
+        imo: item.imo,
+        communicationChannels: item.communicationChannels || ['whatsapp', 'phone'],
         location: item.location,
         categories: item.categories || ['Other'],
+        products: item.products || [],
         pricingCatalog: item.pricingCatalog,
         rating: item.rating || 5,
         notes: item.notes,
         tags: item.tags || [],
+        isPricingHidden: !!item.isPricingHidden,
+        isNotesHidden: !!item.isNotesHidden,
+        isHidden: !!item.isHidden,
       });
     }
-    showToast(`Successfully imported ${importedList.length} suppliers!`);
+    showToast(`${importedList.length} টি সাপ্লায়ার ইমপোর্ট করা হয়েছে!`);
   };
 
   return (
@@ -238,7 +309,7 @@ export default function App() {
       {!isOnline && (
         <div className="bg-amber-500 text-white text-xs font-semibold py-1.5 px-4 text-center flex items-center justify-center gap-2">
           <WifiOff className="w-3.5 h-3.5" />
-          <span>Offline Mode — All supplier data is stored locally and will sync when you reconnect.</span>
+          <span>Offline Mode — ডেটা ডিভাইসে সংরক্ষিত আছে এবং অনলাইন হলে ফায়ারবেজে সিঙ্ক হবে।</span>
         </div>
       )}
 
@@ -246,6 +317,7 @@ export default function App() {
       <Navbar
         currentUser={currentUser}
         isAuthLoading={isAuthLoading}
+        isAdmin={isAdmin}
         supplierCount={suppliers.length}
         categoryCount={allCategories.length - 1}
         syncStatus={syncStatus}
@@ -254,6 +326,7 @@ export default function App() {
           setIsAddEditModalOpen(true);
         }}
         onOpenExportImport={() => setIsExportImportOpen(true)}
+        onOpenAdminPanel={() => setIsAdminPanelOpen(true)}
       />
 
       {/* Cloud Migration Banner if signed in and suppliers exist locally */}
@@ -263,14 +336,14 @@ export default function App() {
             <div className="flex items-center gap-2.5 text-emerald-900">
               <CloudUpload className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>
-                You are signed in as <strong>{currentUser.email}</strong>. Upload your local suppliers to Firebase Cloud (munsi-chain)?
+                আপনি <strong>{currentUser.email}</strong> হিসেবে লগইন করেছেন। লোকাল সাপ্লায়ারগুলো কি Firebase Cloud (munsi-chain)-এ ব্যাকআপ রাখবেন?
               </span>
             </div>
             <button
               onClick={migrateLocalToCloud}
               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shrink-0"
             >
-              Sync to Cloud
+              সিঙ্ক করুন
             </button>
           </div>
         </div>
@@ -282,14 +355,14 @@ export default function App() {
         <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/90 shadow-xs space-y-4 mb-6">
           {/* Top Row: Search Input & Quick Actions */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-            {/* Search Bar */}
+            {/* Search Bar - Supports PRODUCT NAMES, suppliers, categories */}
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search suppliers by name, company, phone, category, location, or notes..."
+                placeholder="প্রডাক্টের নাম (যেমন: কটন টুইল, সেন্সর, কার্টন), সাপ্লায়ার বা ফোন দিয়ে সার্চ করুন..."
                 className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-2xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition"
               />
               {searchQuery && (
@@ -302,7 +375,7 @@ export default function App() {
               )}
             </div>
 
-            {/* View Mode Toggle: Grid / List / Category Group */}
+            {/* View Mode Toggle */}
             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200/70 shrink-0 self-start sm:self-auto">
               <button
                 type="button"
@@ -351,7 +424,7 @@ export default function App() {
           {/* Category Filter Pills */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none text-xs">
             <span className="text-slate-400 font-semibold text-[11px] shrink-0 uppercase tracking-wider flex items-center gap-1">
-              <Layers className="w-3.5 h-3.5" /> Category:
+              ক্যাটাগরি:
             </span>
             {allCategories.map((cat) => {
               const active = selectedCategory === cat;
@@ -456,11 +529,11 @@ export default function App() {
             <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4">
               <Building2 className="w-8 h-8" />
             </div>
-            <h3 className="text-base font-bold text-slate-800">No suppliers found</h3>
+            <h3 className="text-base font-bold text-slate-800">কোনো সাপ্লায়ার পাওয়া যায়নি</h3>
             <p className="text-xs text-slate-500 mt-1 mb-5">
               {searchQuery || selectedCategory !== 'All' || selectedTag !== 'All' || minRating > 0
-                ? 'Try adjusting or clearing your search filters.'
-                : 'Get started by creating your first supplier profile with WhatsApp contacts.'}
+                ? 'সার্চ ফিল্টার রিসেট করে দেখুন অথবা প্রডাক্টের নাম পরিবর্তন করুন।'
+                : 'আপনার প্রথম সাপ্লায়ার প্রোফাইল যোগ করে শুরু করুন।'}
             </p>
             {searchQuery || selectedCategory !== 'All' || selectedTag !== 'All' || minRating > 0 ? (
               <button
@@ -472,7 +545,7 @@ export default function App() {
                 }}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl transition"
               >
-                Reset All Filters
+                ফিল্টার রিসেট করুন
               </button>
             ) : (
               <button
@@ -482,7 +555,7 @@ export default function App() {
                 }}
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition"
               >
-                + Add Your First Supplier
+                + নতুন সাপ্লায়ার যুক্ত করুন
               </button>
             )}
           </div>
@@ -491,6 +564,8 @@ export default function App() {
           <CategoryGroupView
             suppliers={filteredSuppliers}
             selectedIds={selectedSupplierIds}
+            isAdmin={isAdmin}
+            searchQuery={searchQuery}
             onToggleSelect={handleToggleSelect}
             onSelectMultiple={(ids) => setSelectedSupplierIds(ids)}
             onEdit={(s) => {
@@ -499,28 +574,31 @@ export default function App() {
             }}
             onDelete={handleDeleteSupplier}
             onViewDetails={(s) => setDetailSupplier(s)}
+            onTogglePriceVisibility={handleTogglePriceVisibility}
           />
         ) : viewMode === 'list' ? (
           /* Compact List View */
           <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs overflow-hidden divide-y divide-slate-100">
             {filteredSuppliers.map((supplier) => {
               const isSelected = selectedSupplierIds.includes(supplier.id);
+              const isPriceHidden = supplier.isPricingHidden && !isAdmin;
+
               return (
                 <div
                   key={supplier.id}
                   onClick={() => setDetailSupplier(supplier)}
-                  className={`p-3.5 sm:p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-50 transition ${
+                  className={`p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer hover:bg-slate-50 transition ${
                     isSelected ? 'bg-emerald-50/60' : ''
                   }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-start sm:items-center gap-3 min-w-0">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleToggleSelect(supplier.id);
                       }}
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
+                      className={`mt-0.5 sm:mt-0 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
                         isSelected
                           ? 'bg-emerald-600 border-emerald-600 text-white'
                           : 'bg-white border-slate-300 text-transparent hover:border-emerald-500'
@@ -530,12 +608,12 @@ export default function App() {
                     </button>
 
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-sm text-slate-900 truncate">
                           {supplier.name}
                         </span>
                         {supplier.companyName && (
-                          <span className="text-xs text-slate-500 truncate hidden sm:inline">
+                          <span className="text-xs text-slate-500 truncate">
                             • {supplier.companyName}
                           </span>
                         )}
@@ -543,7 +621,24 @@ export default function App() {
                           <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                           {supplier.rating}.0
                         </span>
+                        {supplier.isPricingHidden && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                            <Lock className="w-2.5 h-2.5" /> Price Hidden
+                          </span>
+                        )}
                       </div>
+
+                      {/* Products preview */}
+                      {supplier.products && supplier.products.length > 0 && (
+                        <div className="flex items-center gap-1 mt-1 text-[11px] text-emerald-800">
+                          <Package className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span className="truncate">
+                            {supplier.products.slice(0, 4).join(', ')}
+                            {supplier.products.length > 4 ? ` (+${supplier.products.length - 4})` : ''}
+                          </span>
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
                         <span className="font-mono text-emerald-700">{supplier.phone}</span>
                         {supplier.categories?.[0] && (
@@ -558,34 +653,9 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const url = `https://wa.me/${supplier.cleanPhone || supplier.phone}`;
-                        window.open(url, '_blank', 'noopener,noreferrer');
-                      }}
-                      className="px-2.5 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-white text-xs font-bold rounded-lg shadow-2xs transition"
-                      title="Open WhatsApp chat"
-                    >
-                      <MessageCircle className="w-3.5 h-3.5 fill-current" />
-                    </button>
-
-                    {supplier.facebookUrl && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(supplier.facebookUrl, '_blank', 'noopener,noreferrer');
-                        }}
-                        className="px-2.5 py-1.5 bg-[#1877F2] hover:bg-[#0c63d4] text-white text-xs font-semibold rounded-lg shadow-2xs transition"
-                        title="Open Facebook Profile"
-                      >
-                        FB
-                      </button>
-                    )}
+                  {/* Actions: ONLY selected communication channels */}
+                  <div className="flex items-center justify-end gap-2 shrink-0 self-end sm:self-center">
+                    <ChannelActionButtons supplier={supplier} compact={true} />
                   </div>
                 </div>
               );
@@ -599,6 +669,8 @@ export default function App() {
                 key={supplier.id}
                 supplier={supplier}
                 isSelected={selectedSupplierIds.includes(supplier.id)}
+                isAdmin={isAdmin}
+                searchQuery={searchQuery}
                 onToggleSelect={handleToggleSelect}
                 onEdit={(s) => {
                   setEditingSupplier(s);
@@ -606,6 +678,7 @@ export default function App() {
                 }}
                 onDelete={handleDeleteSupplier}
                 onViewDetails={(s) => setDetailSupplier(s)}
+                onTogglePriceVisibility={handleTogglePriceVisibility}
               />
             ))}
           </div>
@@ -621,7 +694,7 @@ export default function App() {
                 {selectedSupplierIds.length}
               </span>
               <span className="text-xs sm:text-sm font-semibold">
-                {selectedSupplierIds.length === 1 ? 'Supplier' : 'Suppliers'} Selected
+                টি সাপ্লায়ার নির্বাচিত
               </span>
             </div>
 
@@ -632,8 +705,7 @@ export default function App() {
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl border border-slate-600 transition"
                 title="Copy phone numbers formatted for WhatsApp Broadcast"
               >
-                <Copy className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Copy Numbers</span>
+                <span>নাম্বার কপি</span>
               </button>
 
               <button
@@ -641,8 +713,7 @@ export default function App() {
                 onClick={() => setIsBroadcastDrawerOpen(true)}
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#25D366] hover:bg-[#20bd5a] text-slate-950 font-bold text-xs rounded-xl shadow-md transition active:scale-95"
               >
-                <MessageCircle className="w-3.5 h-3.5 fill-slate-950" />
-                <span>WhatsApp Broadcast</span>
+                <span>হোয়াটসঅ্যাপ ব্রডকাস্ট</span>
               </button>
 
               <button
@@ -661,6 +732,7 @@ export default function App() {
       {/* Add / Edit Supplier Modal */}
       <SupplierModal
         isOpen={isAddEditModalOpen}
+        isAdmin={isAdmin}
         onClose={() => {
           setIsAddEditModalOpen(false);
           setEditingSupplier(null);
@@ -672,12 +744,14 @@ export default function App() {
       {/* Supplier Profile Details Modal */}
       <SupplierDetailModal
         supplier={detailSupplier}
+        isAdmin={isAdmin}
         onClose={() => setDetailSupplier(null)}
         onEdit={(s) => {
           setEditingSupplier(s);
           setIsAddEditModalOpen(true);
         }}
         onDelete={handleDeleteSupplier}
+        onTogglePriceVisibility={handleTogglePriceVisibility}
       />
 
       {/* WhatsApp Broadcast Drawer / Modal */}
@@ -691,6 +765,20 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Admin Panel Modal */}
+      <AdminPanelModal
+        isOpen={isAdminPanelOpen}
+        onClose={() => setIsAdminPanelOpen(false)}
+        isAdmin={isAdmin}
+        userEmail={currentUser?.email || null}
+        onAuthenticateAdmin={handleAuthenticateAdmin}
+        onExitAdmin={handleExitAdmin}
+        suppliers={suppliers}
+        onUpdateSupplier={updateSupplier}
+        adminSettings={adminSettings}
+        onUpdateAdminSettings={handleUpdateAdminSettings}
+      />
 
       {/* Export / Import Modal */}
       <ExportImportModal

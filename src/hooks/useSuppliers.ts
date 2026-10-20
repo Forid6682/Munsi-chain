@@ -15,7 +15,7 @@ import { Supplier, SupplierFormData } from '../types/supplier';
 import { INITIAL_SUPPLIERS } from '../data/initialSuppliers';
 import { cleanPhoneNumber } from '../utils/whatsapp';
 
-const LOCAL_STORAGE_KEY = 'munsi_suppliers_local_v1';
+const LOCAL_STORAGE_KEY = 'munsi_suppliers_local_v2';
 
 export function useSuppliers(currentUser: User | null, isAuthLoading: boolean) {
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => {
@@ -113,12 +113,20 @@ export function useSuppliers(currentUser: User | null, isAuthLoading: boolean) {
         phone: formData.phone.trim(),
         cleanPhone,
         facebookUrl: formData.facebookUrl?.trim() || '',
+        telegram: formData.telegram?.trim() || '',
+        email: formData.email?.trim() || '',
+        imo: formData.imo?.trim() || '',
+        communicationChannels: formData.communicationChannels || ['whatsapp', 'phone'],
         location: formData.location?.trim() || '',
         categories: formData.categories.length > 0 ? formData.categories : ['Other'],
+        products: formData.products || [],
         pricingCatalog: formData.pricingCatalog?.trim() || '',
         rating: Math.max(1, Math.min(5, Number(formData.rating) || 5)),
         notes: formData.notes?.trim() || '',
         tags: formData.tags || [],
+        isPricingHidden: !!formData.isPricingHidden,
+        isNotesHidden: !!formData.isNotesHidden,
+        isHidden: !!formData.isHidden,
         createdAt: now,
         updatedAt: now,
       };
@@ -133,12 +141,20 @@ export function useSuppliers(currentUser: User | null, isAuthLoading: boolean) {
             phone: newSupplier.phone,
             cleanPhone: newSupplier.cleanPhone,
             facebookUrl: newSupplier.facebookUrl,
+            telegram: newSupplier.telegram,
+            email: newSupplier.email,
+            imo: newSupplier.imo,
+            communicationChannels: newSupplier.communicationChannels,
             location: newSupplier.location,
             categories: newSupplier.categories,
+            products: newSupplier.products,
             pricingCatalog: newSupplier.pricingCatalog,
             rating: newSupplier.rating,
             notes: newSupplier.notes,
             tags: newSupplier.tags,
+            isPricingHidden: newSupplier.isPricingHidden,
+            isNotesHidden: newSupplier.isNotesHidden,
+            isHidden: newSupplier.isHidden,
             createdAt: newSupplier.createdAt,
             updatedAt: newSupplier.updatedAt,
           });
@@ -173,12 +189,20 @@ export function useSuppliers(currentUser: User | null, isAuthLoading: boolean) {
             updatePayload.cleanPhone = cleanPhone;
           }
           if (formData.facebookUrl !== undefined) updatePayload.facebookUrl = formData.facebookUrl.trim();
+          if (formData.telegram !== undefined) updatePayload.telegram = formData.telegram.trim();
+          if (formData.email !== undefined) updatePayload.email = formData.email.trim();
+          if (formData.imo !== undefined) updatePayload.imo = formData.imo.trim();
+          if (formData.communicationChannels !== undefined) updatePayload.communicationChannels = formData.communicationChannels;
           if (formData.location !== undefined) updatePayload.location = formData.location.trim();
           if (formData.categories !== undefined) updatePayload.categories = formData.categories;
+          if (formData.products !== undefined) updatePayload.products = formData.products;
           if (formData.pricingCatalog !== undefined) updatePayload.pricingCatalog = formData.pricingCatalog.trim();
           if (formData.rating !== undefined) updatePayload.rating = Number(formData.rating);
           if (formData.notes !== undefined) updatePayload.notes = formData.notes.trim();
           if (formData.tags !== undefined) updatePayload.tags = formData.tags;
+          if (formData.isPricingHidden !== undefined) updatePayload.isPricingHidden = Boolean(formData.isPricingHidden);
+          if (formData.isNotesHidden !== undefined) updatePayload.isNotesHidden = Boolean(formData.isNotesHidden);
+          if (formData.isHidden !== undefined) updatePayload.isHidden = Boolean(formData.isHidden);
 
           await updateDoc(docRef, updatePayload);
         } catch (error) {
