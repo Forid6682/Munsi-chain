@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128;
+    }
+
+    function isValidSupplier(data) {
+      return data.ownerId is string && data.ownerId == request.auth.uid
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.phone is string && data.phone.size() > 0 && data.phone.size() <= 30
+        && (!('companyName' in data) || (data.companyName is string && data.companyName.size() <= 150))
+        && (!('cleanPhone' in data) || (data.cleanPhone is string && data.cleanPhone.size() <= 25))
+        && (!('facebookUrl' in data) || (data.facebookUrl is string && data.facebookUrl.size() <= 300))
+        && (!('location' in data) || (data.location is string && data.location.size() <= 300))
+        && (!('pricingCatalog' in data) || (data.pricingCatalog is string && data.pricingCatalog.size() <= 1000))
+        && (!('rating' in data) || (data.rating is number && data.rating >= 1 && data.rating <= 5))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 2000))
+        && (!('categories' in data) || (data.categories is list && data.categories.size() <= 20))
+        && (!('tags' in data) || (data.tags is list && data.tags.size() <= 20))
+        && (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50))
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 50));
+    }
+
+    match /suppliers/{supplierId} {
+      // Secure List & Get: Only documents owned by authenticated user
+      allow get: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+
+      // Create: user must own the record and meet validation schema
+      allow create: if isSignedIn() && isValidId(supplierId) && isValidSupplier(request.resource.data);
+
+      // Update: user must own the existing record, keep ownerId unchanged, and validate payload
+      allow update: if isSignedIn() && isValidId(supplierId) 
+        && resource.data.ownerId == request.auth.uid 
+        && request.resource.data.ownerId == resource.data.ownerId 
+        && isValidSupplier(request.resource.data);
+
+      // Delete: only owner
+      allow delete: if isSignedIn() && isValidId(supplierId) && resource.data.ownerId == request.auth.uid;
+    }
+  }
+}

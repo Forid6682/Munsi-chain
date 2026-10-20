@@ -1,0 +1,6 @@
+{
+  "name": "Munsi Supplier Directory & WhatsApp Broadcast",
+  "description": "Supplier management directory with WhatsApp direct deep linking, broadcast lists, Facebook profile integration, and offline-ready PWA powered by Firebase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

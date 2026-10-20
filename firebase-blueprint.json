@@ -1,0 +1,86 @@
+{
+  "entities": {
+    "Supplier": {
+      "title": "Supplier",
+      "description": "Supplier directory record with contact information, WhatsApp deep links, Facebook links, pricing details, and categories.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the supplier"
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "User ID of the supplier owner"
+        },
+        "name": {
+          "type": "string",
+          "description": "Primary contact person name",
+          "maxLength": 100
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Business or company organization name",
+          "maxLength": 150
+        },
+        "phone": {
+          "type": "string",
+          "description": "WhatsApp-enabled phone number with country code",
+          "maxLength": 30
+        },
+        "cleanPhone": {
+          "type": "string",
+          "description": "Sanitized numeric phone digits for wa.me links",
+          "maxLength": 25
+        },
+        "facebookUrl": {
+          "type": "string",
+          "description": "URL to Facebook profile or business page",
+          "maxLength": 300
+        },
+        "location": {
+          "type": "string",
+          "description": "Physical address, city, or market location",
+          "maxLength": 300
+        },
+        "categories": {
+          "type": "array",
+          "description": "Product categories or item types supplied"
+        },
+        "pricingCatalog": {
+          "type": "string",
+          "description": "Price range, catalog details, or payment terms",
+          "maxLength": 1000
+        },
+        "rating": {
+          "type": "number",
+          "description": "Private rating from 1 to 5 stars"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Internal notes, delivery speed, advance requirements",
+          "maxLength": 2000
+        },
+        "tags": {
+          "type": "array",
+          "description": "Labels such as Priority, Backup, Wholesale"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp of creation"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update"
+        }
+      },
+      "required": ["ownerId", "name", "phone"]
+    }
+  },
+  "firestore": {
+    "/suppliers/{supplierId}": {
+      "schema": "Supplier",
+      "description": "Collection of suppliers owned and managed by the authenticated user"
+    }
+  }
+}

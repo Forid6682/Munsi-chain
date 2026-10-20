@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#047857" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#064e3b" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="110" fill="url(#grad)" />
+  <g filter="url(#shadow)" fill="none" stroke="#ffffff" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" transform="translate(106, 106)">
+    <!-- Building/Supplier & WhatsApp connectivity iconography -->
+    <path d="M40 220 L40 60 L140 20 L260 60 L260 220 Z" fill="#ffffff" fill-opacity="0.1" />
+    <path d="M40 220 L260 220" />
+    <path d="M90 220 L90 140 L150 140 L150 220" fill="#ffffff" fill-opacity="0.2"/>
+    <path d="M190 90 L210 90" />
+    <path d="M190 130 L210 130" />
+    <path d="M90 90 L110 90" />
+    <circle cx="220" cy="220" r="50" fill="#10b981" stroke="#ffffff" stroke-width="16" />
+    <path d="M208 210 C208 205 212 200 220 200 C228 200 232 205 232 212 C232 225 210 226 210 236 M220 248 L220.01 248" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+  </g>
+</svg>
